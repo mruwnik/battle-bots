@@ -1,6 +1,7 @@
 (ns arena.game
   (:require [clojure.string :as string]
             [clojure.data.json :as json]
+            [clojure.math.combinatorics :as combo]
             [arena.rules :as rules]
             [clj-http.client :as client]))
 
@@ -45,18 +46,18 @@
 (defn ask-for-move [contestant state]
   "Send a request to the given contestant for thier next move."
   (try
-    (:body (client/post
-            (:callback contestant
-                       {:body (json/write-str state)
-                        :content-type :json
-                        :accept :json})))
+    (:body (client/post (:callback contestant)
+                        {:body (json/write-str {:state state :you (:id contestant)})
+                         :content-type :json
+                         :accept :json}
+                        ))
   (catch clojure.lang.ExceptionInfo e)
   (catch java.net.MalformedURLException e)))
 
 
 (defn contestant-move [prev-state parser contestant]
   "Update the given contestant with their newest move."
-  (update-in contestant [:moves]
+  (update contestant :moves
              #(conj % (parser (ask-for-move contestant prev-state)))))
 
 (defn prev-state [contestant]
@@ -66,24 +67,33 @@
    :score (:score contestant)
    :move (last (:moves contestant))})
 
-(defn round [contestants parser update-winner]
+(defn round [parser update-winner contestants]
   "A single round of the game.
 parser - how to interpret whatever the contestants return
 update-winner - the rules on who won - this should return the contestants with updated scores."
   (let [state (map prev-state contestants)]
     (update-winner (map #(contestant-move state parser %) contestants))))
 
-(defn game [contestants rounds parser rules]
-  "Run a game with the given parameters."
-  (if (< rounds 0)
-    contestants (game (round contestants parser rules) (dec rounds) parser rules)))
 
+(defn n-rounds [rounds round-func contentants]
+  (if (<= rounds 0)
+    contentants (n-rounds (dec rounds) round-func (round-func contentants))))
+
+
+(defn game [contestants rounds rules]
+  "Run a game with the given parameters."
+  (map
+   (partial n-rounds rounds (partial round (:parser rules) (:updater rules)))
+   (cond
+     (= :pairs (:type rules)) (combo/selections contestants 2)
+     (= :battle-royale (:type rules)) [contestants]
+     :else [contestants])))
 
 (defn start [arena-id]
   "Run the arena with the given id."
   (when (contains? @waiting arena-id)
-    (let [arena (get @waiting arena-id)
-          [parser rules] (rules/game-rules arena)]
+    (let [arena (get @waiting arena-id)]
       (swap! waiting #(dissoc % arena-id))
       (swap! started #(assoc % arena-id
-                             (assoc-in arena [:contestants] (game (vals (:contestants arena)) (:rounds arena) parser rules)))))))
+                             (assoc-in arena [:results]
+                                       (game (vals (:contestants arena)) (:rounds arena) (rules/game-rules arena))))))))

@@ -23,12 +23,15 @@ Provide a name, the amount of rounds and the game. Different games have differen
 but all expect that each contenstant provides an endpoint that can recieve POST requests
 and which returns it's next move. Each round consists of the server sending the current
 state to each contenstant, after which it collects all responses and updates the score.
-Each contenstant will recieve a JSON object like the following:
+Each contenstant will recieve a JSON object like the following (assuming that you are "contenstant 1"):
 
-    [
-      {"id": "id1", "name": "contenstant 1", "score": 12, "move": "paper"},
-      {"id": "id2", "name": "contenstant 2", "score": 2, "move": "paper"},
-      {"id": "id3", "name": "contenstant 3", "score": 5, "move": "rock"},
+    {
+      "you": "id1",
+      "state": [
+        {"id": "id1", "name": "contenstant 1", "score": 12, "move": "paper"},
+        {"id": "id2", "name": "contenstant 2", "score": 2, "move": "paper"},
+        {"id": "id3", "name": "contenstant 3", "score": 5, "move": "rock"},
+      ]
     ]
 
 Which means that in last round players 1 and 2 played "paper", while player 3 played "rock".
@@ -49,8 +52,22 @@ is last single player standing after the following eliminations:
 
 The only valid moves are "rock", "paper" or "scissors" - any other values result in
 a player automatically losing a given round.
-For testing, there is and endpoint ([/random_rock](http://localhost:3000/random_rock)) which randomly returns one of the
+For testing, there is and endpoint ([/rock_paper/random](http://localhost:3000/rock_paper/random)) which randomly returns one of the
 above values.
+
+### Iterated prisoner's dilemma
+
+Each player can either "help" or "cheat". Then the following rules apply:
+
+* if both help, they both get 2 points
+* if both cheat, the both get 1 point
+* if one cheats and the other helps, then the cheater gets 5 points, while the helper 0
+
+For testing use:
+* ([/dilemma/random](http://localhost:3000/dilemma/random)) - returns a random value
+* ([/dilemma/nice](http://localhost:3000/dilemma/nice)) - always helps
+* ([/dilemma/nasty](http://localhost:3000/dilemma/nasty)) - always cheats
+* ([/dilemma/tit-tat](http://localhost:3000/dilemma/tit-tat)) - first helps, then returns whatever the other player played in the previous round
 
 ## License
 
